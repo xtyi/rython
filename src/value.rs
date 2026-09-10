@@ -16,6 +16,7 @@ pub enum VmValue {
     FrozenSet(Vec<VmValue>),
     Dict(Vec<(VmValue, VmValue)>),
     Code(Box<CodeObject>),
+    BuiltinPrint,
 }
 
 impl VmValue {
@@ -85,6 +86,7 @@ impl VmValue {
             Self::FrozenSet(_) => "frozenset",
             Self::Dict(_) => "dict",
             Self::Code(_) => "code",
+            Self::BuiltinPrint => "builtin_function_or_method",
         }
     }
 
@@ -101,6 +103,7 @@ impl VmValue {
             }
             Self::Dict(value) => !value.is_empty(),
             Self::Code(_) => true,
+            Self::BuiltinPrint => true,
         }
     }
 
@@ -127,7 +130,7 @@ impl std::fmt::Display for VmValue {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::None => write!(f, "None"),
-            Self::Bool(value) => write!(f, "{value}"),
+            Self::Bool(value) => write!(f, "{}", if *value { "True" } else { "False" }),
             Self::Int(value) => write!(f, "{value}"),
             Self::Float(value) => write!(f, "{value}"),
             Self::String(value) => write!(f, "{value:?}"),
@@ -147,6 +150,17 @@ impl std::fmt::Display for VmValue {
                 write!(f, "}}")
             }
             Self::Code(code) => write!(f, "<code object {}>", code.name),
+            Self::BuiltinPrint => write!(f, "<built-in function print>"),
+        }
+    }
+}
+
+impl VmValue {
+    pub(crate) fn print_text(&self) -> String {
+        match self {
+            Self::String(value) => value.clone(),
+            Self::Bytes(value) => format!("b{value:?}"),
+            value => value.to_string(),
         }
     }
 }

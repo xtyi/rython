@@ -436,3 +436,30 @@ The runtime uses a heap plus handles and a tracing mark-and-sweep collector.
 This avoids representing Python's cyclic object graph with Rust ownership
 references, while preserving a path toward generational collection and other
 future optimizations.
+
+## 13. Debug CLI
+
+The package also builds an executable named `rython`. It accepts one Python
+source file:
+
+```bash
+cargo run -- path/to/script.py
+```
+
+The executable invokes `python3` to compile the source into a temporary
+`.pyc`, passes the bytes through `parse_pyc`, and runs the resulting code with
+`Vm`. The VM's buffered `print()` output is written to stdout. The top-level
+return value is written to stderr with a `[rython] result:` prefix.
+
+The frontend executable can be overridden for local debugging:
+
+```bash
+RYTHON_PYTHON=python3.12 cargo run -- path/to/script.py
+```
+
+The parser is currently bound to CPython 3.12, so the selected frontend must
+produce CPython 3.12 `.pyc` files.
+
+The only callable currently registered by default is positional-only
+`print(*values)`. Keyword arguments such as `end=` and `sep=`, user-defined
+functions, and other built-ins are not supported yet.

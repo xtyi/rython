@@ -8,9 +8,21 @@ use crate::value::VmValue;
 
 const BINARY_OP_INPLACE_OFFSET: u32 = 13;
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 pub struct Vm {
     globals: BTreeMap<String, VmValue>,
+    output: String,
+}
+
+impl Default for Vm {
+    fn default() -> Self {
+        let mut globals = BTreeMap::new();
+        globals.insert("print".to_string(), VmValue::BuiltinPrint);
+        Self {
+            globals,
+            output: String::new(),
+        }
+    }
 }
 
 impl Vm {
@@ -24,6 +36,14 @@ impl Vm {
 
     pub fn global(&self, name: &str) -> Option<&VmValue> {
         self.globals.get(name)
+    }
+
+    pub fn output(&self) -> &str {
+        &self.output
+    }
+
+    pub fn take_output(&mut self) -> String {
+        std::mem::take(&mut self.output)
     }
 
     pub fn run_pyc(&mut self, pyc: &PycFile) -> VmResult<VmValue> {
@@ -290,7 +310,19 @@ impl Vm {
                         }
                     }
                 }
-                Opcode::ForIter | Opcode::Call | Opcode::MakeFunction => {
+                Opcode::Call => {
+                    let arguments = frame.pop_many(instruction, instruction.arg as usize)?;
+                    let callable = frame.pop(instruction)?;
+                    if matches!(frame.stack.last(), Some(VmValue::None)) {
+                        frame.stack.pop();
+                    }
+                    let result = match callable {
+                        VmValue::BuiltinPrint => self.call_print(arguments),
+                        other => return Err(Self::type_error(instruction, "call", &other, None)),
+                    };
+                    frame.stack.push(result);
+                }
+                Opcode::ForIter | Opcode::MakeFunction => {
                     return Err(VmError::UnsupportedOpcode {
                         offset: instruction.offset,
                         opcode: instruction.raw_opcode(),
@@ -750,6 +782,17 @@ impl Vm {
             argument: instruction.arg,
             reason,
         }
+    }
+
+    fn call_print(&mut self, arguments: Vec<VmValue>) -> VmValue {
+        for (index, argument) in arguments.iter().enumerate() {
+            if index != 0 {
+                self.output.push(' ');
+            }
+            self.output.push_str(&argument.print_text());
+        }
+        self.output.push('\n');
+        VmValue::None
     }
 
     fn replace_global_container(&mut self, original: &VmValue, updated: VmValue) {
