@@ -1,0 +1,10 @@
+[package]
+name = "rython"
+version = "0.1.0"
+edition = "2021"
+description = "A Rust Python virtual machine"
+license = "MIT"
+
+[lib]
+path = "src/lib.rs"
+
